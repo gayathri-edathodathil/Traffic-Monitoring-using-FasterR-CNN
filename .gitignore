@@ -1,0 +1,9 @@
+__pycache__/
+bdd10k/
+best_model/
+dataset/
+mini_dataset/
+results/
+createSubset.py
+test.py
+vis_results.py
