@@ -128,7 +128,7 @@ source venv/bin/activate        # Linux/macOS
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install torchmetrics matplotlib pillow pandas
 
-# 4. download dataset, create directories: best_model, results
+# 4. download dataset in the recommended dataset structure
 ```
 
 > **Note:** Adjust the PyTorch install URL to match your CUDA version. See [pytorch.org](https://pytorch.org/get-started/locally/) for options.

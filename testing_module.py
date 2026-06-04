@@ -6,97 +6,52 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from valuation import Evaluator
 from transforms import Compose, Resize, ToTensor
 
-
 def collate_fn(batch):
         return tuple(zip(*batch))
 
-def main(dataset):
+def main(dataset, lr, epochs):
     num_classes = 11
     transforms = Compose([Resize((384, 640)),ToTensor()])
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=None)
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features,num_classes)
 
-    model.load_state_dict(torch.load(f"best_model/best_model_{dataset}.pth"))
+    model.load_state_dict(torch.load(f"best_model/best_model_{dataset}_{epochs}_epochs_{str(lr)[2:]}_lr.pth"))
 
     device = torch.device("cuda")
     model.to(device)
 
-    train_dataset = BDDDataset(
-        root=f"{dataset}/images/train",
-        annotation_file=f"{dataset}/labels/train.json",
-        transforms=transforms
-    )
+    def val_dataset_eval(split="val", evaluator=None):
+        val_dataset = BDDDataset(
+            root=f"{dataset}/images/{split}",
+            annotation_file=f"{dataset}/labels/{split}.json",
+            transforms=transforms
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=4,
+            shuffle=False,
+            num_workers=4,
+            collate_fn=collate_fn
+        )
+        if evaluator is None:
+            evaluator=Evaluator()
+        print(f"Evaluating {split.upper()} set...")
+        val_results,pre_recall,class_report = evaluator.evaluate(
+            model,
+            val_loader,
+            device
+        )
+        for k,v in val_results.items():
+            print(k,":",v)
+        print("Precision:", pre_recall["precision"])
+        print("Recall:", pre_recall["recall"])
+        print("Classification Report:")
+        print(class_report)
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=4,
-        shuffle=False,
-        num_workers=4,
-        collate_fn=collate_fn
-    )
-
-    val_dataset = BDDDataset(
-        root=f"{dataset}/images/val",
-        annotation_file=f"{dataset}/labels/val.json",
-        transforms=transforms
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=4,
-        shuffle=False,
-        num_workers=4,
-        collate_fn=collate_fn
-    )
-
-    night_dataset = BDDDataset(
-        root=f"{dataset}/images/night_val",
-        annotation_file=f"{dataset}/labels/night_val.json",
-        transforms=transforms
-    )
-
-    night_loader = DataLoader(
-        night_dataset,
-        batch_size=4,
-        shuffle=False,
-        num_workers=4,
-        collate_fn=collate_fn
-    )
-
-    evaluator=Evaluator()
-
-    print("Evaluating TRAIN set...")
-
-    train_results = evaluator.evaluate(
-        model,
-        train_loader,
-        device
-    )
-    for k,v in train_results.items():
-        print(k,":",v)
-
-    print("Evaluating VAL set...")
-
-    val_results = evaluator.evaluate(
-        model,
-        val_loader,
-        device
-    )
-
-    for k,v in val_results.items():
-        print(k,":",v)
-
-    print("Evaluating NIGHT set...")
-
-    night_results = evaluator.evaluate(
-        model,
-        night_loader,
-        device
-    )
-
-    for k,v in night_results.items():
-        print(k,":",v)
+    val_dataset_eval(split="val",evaluator=Evaluator())
+    val_dataset_eval(split="test_day",evaluator=Evaluator())
+    val_dataset_eval(split="test_night",evaluator=Evaluator())
 
 if __name__ == "__main__":
-    main(dataset="mini_dataset")
+    main(dataset="main_dataset_2k",lr=0.0001,epochs=30)
